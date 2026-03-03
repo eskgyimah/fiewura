@@ -30,11 +30,11 @@
     "node-cron": "^3.0.3",
     "axios": "^1.6.2",
     "paystack-api": "^2.0.6",
-    "pdfkit": "^0.14.0"
+    "pdfkit": "^0.14.0",
+    "esbuild": "^0.20.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",
-    "ts-node": "^10.9.2",
-    "esbuild": "^0.20.0"
+    "ts-node": "^10.9.2"
   }
 }
