@@ -35,69 +35,6 @@ export const authMiddleware = async (req: AuthRequest, res: Response, next: Next
   }
 };
 
-export const requireRole = (roles: string[]) => {
-  return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-    if (!roles.includes(req.user.role)) {
-      res.status(403).json({ error: 'Insufficient permissions' });
-      return;
-    }
-    next();
-  };
-};
-
-export const requirePropertyAccess = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    if (!req.user) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
-    const propertyId = req.params.propertyId;
-    if (!propertyId) {
-      res.status(400).json({ error: 'Property ID required' });
-      return;
-    }
-
-    if (req.user.role === 'TENANT') {
-      // Check if tenant has lease for this property
-      const lease = await prisma.lease.findFirst({
-        where: {
-          tenantId: req.user.tenant?.id,
-          propertyId: propertyId,
-          status: 'ACTIVE'
-        }
-      });
-      if (!lease) {
-        res.status(403).json({ error: 'Access denied. No active lease for this property.' });
-        return;
-      }
-    } else if (req.user.role === 'LANDLORD') {
-      // Check if landlord owns the property
-      const property = await prisma.property.findUnique({
-        where: { id: propertyId }
-      });
-      if (!property || property.landlordId !== req.user.id) {
-        res.status(403).json({ error: 'Access denied. Property not owned by you.' });
-        return;
-      }
-    } else if (req.user.role === 'VENDOR') {
-      // Vendors access via assignments, but for property access, maybe check assignments
-      // For now, deny unless assigned to property
-      res.status(403).json({ error: 'Vendors do not have direct property access.' });
-      return;
-    }
-
-    next();
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error' });
-  }
-};
-
 export const requireAssignmentAccess = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     if (!req.user) {
@@ -124,13 +61,13 @@ export const requireAssignmentAccess = async (req: AuthRequest, res: Response, n
       // Landlords can access assignments for their properties
       const assignment = await prisma.maintenanceAssignment.findUnique({
         where: { id: assignmentId },
-        include: { maintenance: { include: { property: true } } }
+        include: { maintenanceRequest: { include: { property: true } } }
       });
       if (!assignment) {
         res.status(404).json({ error: 'Assignment not found' });
         return;
       }
-      if (req.user.role === 'LANDLORD' && assignment.maintenance.property.landlordId !== req.user.id) {
+      if (req.user.role === 'LANDLORD' && assignment.maintenanceRequest.property.landlordId !== req.user.id) {
         res.status(403).json({ error: 'Access denied. Not your property.' });
         return;
       }
@@ -139,7 +76,7 @@ export const requireAssignmentAccess = async (req: AuthRequest, res: Response, n
         const lease = await prisma.lease.findFirst({
           where: {
             tenantId: req.user.tenant?.id,
-            propertyId: assignment.maintenance.propertyId,
+            propertyId: assignment.maintenanceRequest.propertyId,
             status: 'ACTIVE'
           }
         });
