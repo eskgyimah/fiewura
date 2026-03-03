@@ -1,0 +1,254 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  password       String
+  role           Role
+  name           String
+  phone          String?
+  refreshToken   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  properties Property[] // if landlord
+  tenant     Tenant?
+  messages   Message[]
+  communityPosts CommunityPost[]
+}
+
+enum Role {
+  LANDLORD
+  TENANT
+  VENDOR
+  TECH_TEAM
+}
+
+model Property {
+  id          String   @id @default(cuid())
+  landlordId  String
+  address     String
+  city        String
+  country     String   @default("Ghana")
+  rentAmount  Float
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  landlord    User     @relation(fields: [landlordId], references: [id])
+  tenants     Tenant[]
+  leases      Lease[]
+  maintenances Maintenance[]
+  communityPosts CommunityPost[]
+}
+
+model Tenant {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  propertyId String
+  leaseId    String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  user       User     @relation(fields: [userId], references: [id])
+  property   Property @relation(fields: [propertyId], references: [id])
+  lease      Lease?   @relation(fields: [leaseId], references: [id])
+}
+
+model Lease {
+  id         String   @id @default(cuid())
+  propertyId String
+  tenantId   String   @unique
+  startDate  DateTime
+  endDate    DateTime
+  rentAmount Float
+  status     LeaseStatus @default(ACTIVE)
+  createdAt  DateTime     @default(now())
+
+  // Relations
+  property Property @relation(fields: [propertyId], references: [id])
+  tenant   Tenant  @relation(fields: [tenantId], references: [id])
+  payments Payment[]
+}
+
+enum LeaseStatus {
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+model Maintenance {
+  id          String   @id @default(cuid())
+  propertyId  String
+  tenantId    String?
+  description String
+  status      MaintenanceStatus @default(PENDING)
+  category    MaintenanceCategory @default(OTHER)
+  photos      String[] // array of file paths
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  property     Property                @relation(fields: [propertyId], references: [id])
+  tenant       User?                   @relation(fields: [tenantId], references: [id])
+  assignments  MaintenanceAssignment[]
+}
+
+enum MaintenanceStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MaintenanceCategory {
+  PLUMBING
+  ELECTRICAL
+  STRUCTURAL
+  CLEANING
+  OTHER
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  roomId    String   // could be property id or general
+  userId    String
+  content   String
+  timestamp DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Payment {
+  id             String   @id @default(cuid())
+  leaseId        String
+  amount         Float
+  status         PaymentStatus @default(PENDING)
+  dueDate        DateTime
+  transactionRef String?
+  receiptUrl     String?
+  createdAt      DateTime      @default(now())
+
+  // Relations
+  lease Lease @relation(fields: [leaseId], references: [id])
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model SmsLog {
+  id      String   @id @default(cuid())
+  to      String
+  message String
+  status  String   @default("SENT")
+  sentAt  DateTime @default(now())
+}
+
+model CommunityPost {
+  id         String      @id @default(cuid())
+  propertyId String
+  userId     String
+  content    String
+  type       MessageType @default(DISCUSSION)
+  parentId   String?     // for replies/threading
+  pinned     Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  readBy     String[]    // array of userIds
+
+  // Relations
+  property   Property      @relation(fields: [propertyId], references: [id])
+  user       User          @relation(fields: [userId], references: [id])
+  replies    CommunityPost[] @relation("PostReplies") // self-referencing for threading
+  parent     CommunityPost?  @relation("PostReplies", fields: [parentId], references: [id])
+}
+
+enum MessageType {
+  ANNOUNCEMENT
+  DISCUSSION
+  LOST_FOUND
+  EVENT
+}
+
+model Vendor {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String
+  specialties String[]
+  rating      Float?   @default(0)
+  location    String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignments MaintenanceAssignment[]
+  vendorPayouts VendorPayout[]
+}
+
+model MaintenanceAssignment {
+  id                   String   @id @default(cuid())
+  maintenanceRequestId String
+  vendorId             String
+  assignedAt           DateTime @default(now())
+  proposedSchedule     DateTime?
+  confirmedSchedule    DateTime?
+  counterProposal      DateTime?
+  status               AssignmentStatus @default(ASSIGNED)
+  notes                String?
+  costEstimate         Float?
+  estimatedCost        Float?
+  actualCost           Float?
+  receiptPhoto         String?
+  beforePhotos         String[]
+  afterPhotos          String[]
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  maintenanceRequest   Maintenance @relation(fields: [maintenanceRequestId], references: [id])
+  vendor               Vendor      @relation(fields: [vendorId], references: [id])
+  vendorPayout         VendorPayout?
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  PENDING
+  SCHEDULED
+  COMPLETED
+}
+
+enum VendorPayoutStatus {
+  PENDING
+  INITIATED
+  COMPLETED
+  FAILED
+}
+
+model VendorPayout {
+  id            String             @id @default(cuid())
+  assignmentId  String             @unique
+  amount        Float
+  vendorId      String
+  status        VendorPayoutStatus @default(PENDING)
+  reference     String?
+  createdAt     DateTime           @default(now())
+
+  // Relations
+  assignment    MaintenanceAssignment @relation(fields: [assignmentId], references: [id])
+  vendor        Vendor                @relation(fields: [vendorId], references: [id])
+}

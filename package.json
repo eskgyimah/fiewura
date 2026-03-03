@@ -1,0 +1,13 @@
+{
+  "name": "fie-wura",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter web dev & pnpm --filter api dev",
+    "build": "pnpm --filter web build && pnpm --filter api build",
+    "start": "pnpm --filter api start"
+  }
+}
