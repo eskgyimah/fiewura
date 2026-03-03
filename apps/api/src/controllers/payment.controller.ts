@@ -105,7 +105,7 @@ export const getReceipt = async (req: Request, res: Response): Promise<void> => 
     const { id } = req.params;
     const payment = await prisma.payment.findUnique({
       where: { id },
-      select: { receiptUrl: true, lease: { select: { tenant: { select: { userId: true } } } } } }
+      select: { receiptUrl: true, lease: { select: { tenant: { select: { userId: true } } } } }
     });
 
     if (!payment || payment.lease.tenant.userId !== (req as any).user?.id) {
