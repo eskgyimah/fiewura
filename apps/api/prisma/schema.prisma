@@ -26,6 +26,7 @@ model User {
   tenant     Tenant?
   messages   Message[]
   communityPosts CommunityPost[]
+  maintenanceRequests Maintenance[]
 }
 
 enum Role {
@@ -58,13 +59,12 @@ model Tenant {
   id         String   @id @default(cuid())
   userId     String   @unique
   propertyId String
-  leaseId    String?
   createdAt  DateTime @default(now())
 
   // Relations
   user       User     @relation(fields: [userId], references: [id])
   property   Property @relation(fields: [propertyId], references: [id])
-  lease      Lease?   @relation(fields: [leaseId], references: [id])
+  lease      Lease?
 }
 
 model Lease {
