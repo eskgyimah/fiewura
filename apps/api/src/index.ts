@@ -27,16 +27,29 @@ app.use(logger);
 const prisma = new PrismaClient();
 const server = createServer(app);
 const FRONTEND_URL = process.env.FRONTEND_URL || '*';
+const ALLOWED_ORIGINS = [
+  FRONTEND_URL,
+  'http://localhost',        // Capacitor Android
+  'capacitor://localhost',   // Capacitor iOS
+  'https://localhost',       // Capacitor alternate
+].filter(Boolean);
+
+const corsOrigin = process.env.CORS_ORIGIN === '*'
+  ? true  // allow all origins
+  : (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) cb(null, true);
+      else cb(null, false);
+    };
 
 const io = new Server(server, {
   cors: {
-    origin: FRONTEND_URL,
+    origin: corsOrigin,
     credentials: true,
   },
 });
 
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: corsOrigin,
   credentials: true,
 }));
 app.use(cookieParser());
