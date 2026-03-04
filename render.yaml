@@ -18,5 +18,5 @@ services:
         value: 3001
       - key: NODE_ENV
         value: production
-      - key: CORS_ORIGIN
-        value: "*"
+      - key: FRONTEND_URL
+        sync: false
