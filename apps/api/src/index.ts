@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -25,13 +26,20 @@ const app = express();
 app.use(logger);
 const prisma = new PrismaClient();
 const server = createServer(app);
+const FRONTEND_URL = process.env.FRONTEND_URL || '*';
+
 const io = new Server(server, {
   cors: {
-    origin: "*", // for dev
+    origin: FRONTEND_URL,
+    credentials: true,
   },
 });
 
-app.use(cors());
+app.use(cors({
+  origin: FRONTEND_URL,
+  credentials: true,
+}));
+app.use(cookieParser());
 app.use(express.json());
 
 // Raw body for Paystack webhook

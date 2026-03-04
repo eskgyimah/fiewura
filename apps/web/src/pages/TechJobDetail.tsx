@@ -37,7 +37,7 @@ export default function TechJobDetail() {
   const fetchAssignment = async () => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/assignments/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
       });
       if (response.ok) {
         const data = await response.json();
@@ -61,7 +61,7 @@ export default function TechJobDetail() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
         },
         body: JSON.stringify(body)
       });
@@ -81,7 +81,7 @@ export default function TechJobDetail() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
         },
         body: JSON.stringify({
           estimatedCost: parseFloat(estimatedCost),
@@ -109,7 +109,7 @@ export default function TechJobDetail() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
         },
         body: JSON.stringify({ type, urls })
       });

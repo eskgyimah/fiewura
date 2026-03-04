@@ -10,8 +10,9 @@ export default function PaymentSuccess() {
     if (reference) {
       // Fetch receipt or assume it's handled
       // In real, verify and get receipt
-      fetch(`/api/payments/${reference}/receipt`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      fetch(`${import.meta.env.VITE_API_URL}/payments/${reference}/receipt`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+        credentials: 'include',
       })
         .then(res => res.json())
         .then(data => setReceiptUrl(data.receiptUrl))

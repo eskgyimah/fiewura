@@ -35,7 +35,11 @@ export default function CommunityPage() {
     fetchPosts();
 
     // Socket connection
-    const newSocket = io(import.meta.env.VITE_API_URL || ''); // API URL
+    const newSocket = io(import.meta.env.VITE_API_URL || '', {
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+    });
     setSocket(newSocket);
 
     newSocket.emit('join-community-room', { propertyId });
@@ -57,8 +61,8 @@ export default function CommunityPage() {
   const API = import.meta.env.VITE_API_URL || '';
 
   const fetchPosts = async () => {
-    const response = await fetch(`${API}/api/community/${propertyId}/posts`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    const response = await fetch(`${API}/community/${propertyId}/posts`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
     });
     const data = await response.json();
     setPosts(data);
@@ -67,11 +71,11 @@ export default function CommunityPage() {
   const handlePost = async () => {
     if (!newPost.trim()) return;
 
-    await fetch(`${API}/api/community/${propertyId}/posts`, {
+    await fetch(`${API}/community/${propertyId}/posts`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('token')}`
+        Authorization: `Bearer ${localStorage.getItem('accessToken')}`
       },
       body: JSON.stringify({ content: newPost, type: postType })
     });
@@ -82,11 +86,11 @@ export default function CommunityPage() {
   const handleReply = async (postId: string) => {
     if (!replyContent.trim()) return;
 
-    await fetch(`${API}/api/community/${propertyId}/posts/${postId}/reply`, {
+    await fetch(`${API}/community/${propertyId}/posts/${postId}/reply`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('token')}`
+        Authorization: `Bearer ${localStorage.getItem('accessToken')}`
       },
       body: JSON.stringify({ content: replyContent })
     });
@@ -96,11 +100,11 @@ export default function CommunityPage() {
   };
 
   const handleModerate = async (postId: string, action: 'pin' | 'unpin' | 'delete') => {
-    await fetch(`${API}/api/community/${propertyId}/posts/${postId}`, {
+    await fetch(`${API}/community/${propertyId}/posts/${postId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('token')}`
+        Authorization: `Bearer ${localStorage.getItem('accessToken')}`
       },
       body: JSON.stringify({ action })
     });
@@ -116,8 +120,8 @@ export default function CommunityPage() {
       <p>{post.content}</p>
       <div className="mt-2">
         {!isReply && <button onClick={() => setReplyingTo(post.id)} className="text-blue-500 mr-2">Reply</button>}
-        {/* Moderation buttons for landlord */}
-        {post.user.role === 'LANDLORD' && (
+        {/* Moderation buttons for current user if landlord */}
+        {JSON.parse(localStorage.getItem('user') || '{}').role === 'LANDLORD' && (
           <>
             <button onClick={() => handleModerate(post.id, post.pinned ? 'unpin' : 'pin')} className="text-yellow-500 mr-2">
               {post.pinned ? 'Unpin' : 'Pin'}

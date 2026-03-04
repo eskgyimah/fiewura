@@ -31,7 +31,7 @@ function RegisterForm() {
 
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem('token', data.token);
+        localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('user', JSON.stringify(data.user));
         alert('Registration successful! Please log in.');
         // Switch to login form
@@ -40,6 +40,7 @@ function RegisterForm() {
         setError(errorData.error || 'Registration failed');
       }
     } catch (err) {
+      console.error('Register error:', err);
       setError('Network error. Please try again.');
     } finally {
       setLoading(false);
@@ -128,7 +129,7 @@ function LoginForm() {
 
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem('token', data.token);
+        localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('user', JSON.stringify(data.user));
 
         // Redirect based on role
@@ -144,6 +145,7 @@ function LoginForm() {
         setError(errorData.error || 'Login failed');
       }
     } catch (err) {
+      console.error('Login error:', err);
       setError('Network error. Please try again.');
     } finally {
       setLoading(false);

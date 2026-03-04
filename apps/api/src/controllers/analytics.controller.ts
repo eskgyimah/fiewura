@@ -177,17 +177,10 @@ export const exportAnalyticsReport = async (req: Request, res: Response): Promis
     doc.fontSize(16).text('Overview');
     doc.fontSize(12).text(`Total Properties: ${overview.totalProperties}`);
     doc.text(`Occupancy Rate: ${overview.occupancyRate}%`);
-    doc.text(`Active Tenants: ${overview.activeTenants}`);
-    doc.text(`Pending Rents: ${overview.pendingRents.totalGhs}`);
-    doc.text(`Overdue Rents: ${overview.overdueRents.totalGhs}`);
-    doc.text(`Average Resolution Time: ${overview.avgResolutionTime} days`);
-    doc.moveDown();
-
-    // Top Maintenance Categories
-    doc.fontSize(16).text('Top Maintenance Categories');
-    overview.topMaintenanceCategories.forEach(cat => {
-      doc.fontSize(12).text(`${cat.category}: ${cat.count}`);
-    });
+    doc.text(`Total Tenants: ${overview.totalTenants}`);
+    doc.text(`Rent Collected This Month: GHS ${overview.rentCollectedThisMonth}`);
+    doc.text(`Overdue Rent Count: ${overview.overdueRentCount}`);
+    doc.text(`Pending Maintenance: ${overview.pendingMaintenanceCount}`);
     doc.moveDown();
 
     // Revenue

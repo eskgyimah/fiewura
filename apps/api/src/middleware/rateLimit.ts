@@ -6,6 +6,14 @@ interface RateLimitStore {
 
 const store: RateLimitStore = {};
 
+// Prune expired entries every 5 minutes to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const key in store) {
+    if (now > store[key].resetTime) delete store[key];
+  }
+}, 5 * 60 * 1000);
+
 export const rateLimit = (maxRequests: number = 100, windowMs: number = 15 * 60 * 1000) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const key = req.ip || 'unknown';

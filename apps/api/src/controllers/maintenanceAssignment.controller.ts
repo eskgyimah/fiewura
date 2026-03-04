@@ -82,7 +82,7 @@ export const getMaintenanceAssignments = async (req: Request, res: Response): Pr
     // Check access: landlord or tenant who owns the request
     let whereCondition: any = { maintenanceRequestId: id };
 
-    if (!['LANDLORD', 'FIEWURA'].includes(user.role)) {
+    if (!['LANDLORD', 'ADMIN'].includes(user.role)) {
       whereCondition.maintenanceRequest = { tenantId: user.id };
     } else {
       whereCondition.maintenanceRequest = { property: { landlordId: user.id } };
@@ -231,7 +231,7 @@ export const respondToSchedule = async (req: Request, res: Response): Promise<vo
     });
 
     // Send SMS to tenant on status change
-    if (updated.status === 'SCHEDULED' && assignment.maintenanceRequest.tenant.user.phone) {
+    if (updated.status === 'SCHEDULED' && assignment.maintenanceRequest.tenant?.user?.phone) {
       const sms = `Fie Wura Update: Your maintenance is scheduled for ${updated.confirmedSchedule?.toDateString()}`;
       await sendSMS(assignment.maintenanceRequest.tenant.user.phone, sms);
     }
@@ -293,11 +293,11 @@ export const uploadPhotos = async (req: Request, res: Response): Promise<void> =
     const updated = await prisma.maintenanceAssignment.update({
       where: { id },
       data: updateData,
-      include: { vendor: true, maintenanceRequest: true }
+      include: { vendor: true, maintenanceRequest: { include: { tenant: { include: { user: true } } } } }
     });
 
     // Notify tenant
-    if (updated.status === 'COMPLETED' && updated.maintenanceRequest.tenant.user.phone) {
+    if (updated.status === 'COMPLETED' && updated.maintenanceRequest.tenant?.user?.phone) {
       const sms = `Fie Wura: Your maintenance is completed. Check app for photos and receipt.`;
       await sendSMS(updated.maintenanceRequest.tenant.user.phone, sms);
     }
@@ -499,7 +499,7 @@ export const getVendorJobs = async (req: Request, res: Response): Promise<void> 
       status: assignment.status, // pending, scheduled, in-progress, completed
       description: assignment.maintenanceRequest.description,
       property: assignment.maintenanceRequest.property.address,
-      tenant: assignment.maintenanceRequest.tenant.user,
+      tenant: assignment.maintenanceRequest.tenant?.user ?? { name: 'Unknown', phone: '' },
       proposedSchedule: assignment.proposedSchedule,
       confirmedSchedule: assignment.confirmedSchedule,
       costEstimate: assignment.costEstimate,

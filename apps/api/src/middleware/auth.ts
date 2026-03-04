@@ -94,13 +94,14 @@ export const requireAssignmentAccess = async (req: AuthRequest, res: Response, n
   }
 };
 
-export const requireRole = (...roles: string[]) => {
+export const requireRole = (...roles: (string | string[])[]) => {
+  const flatRoles = roles.flat() as string[];
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
-    if (!roles.includes(req.user.role)) {
+    if (!flatRoles.includes(req.user.role)) {
       res.status(403).json({ error: 'Forbidden: Insufficient role' });
       return;
     }

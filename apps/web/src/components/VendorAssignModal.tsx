@@ -34,7 +34,7 @@ export default function VendorAssignModal({ maintenanceId, isOpen, onClose, onAs
   const fetchVendors = async () => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/vendors`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
       });
       if (response.ok) {
         const data = await response.json();
@@ -56,7 +56,7 @@ export default function VendorAssignModal({ maintenanceId, isOpen, onClose, onAs
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
         },
         body: JSON.stringify({
           vendorId: selectedVendor,

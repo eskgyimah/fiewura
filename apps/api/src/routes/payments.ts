@@ -8,6 +8,6 @@ router.post('/initiate', authMiddleware, requireRole(['TENANT']), initiatePaymen
 router.post('/webhook', handleWebhook); // Public for Paystack
 router.get('/:id/receipt', authMiddleware, getReceipt);
 router.post('/verify', authMiddleware, verifyPayment);
-router.get('/pending', authMiddleware, requireRole(['LANDLORD']), getPendingPayments);
+router.get('/pending', authMiddleware, requireRole(['TENANT']), getPendingPayments);
 
 export default router;

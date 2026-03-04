@@ -75,6 +75,34 @@ export default function Dashboard() {
   const [newProperty, setNewProperty] = useState<NewProperty>({ address: '', rentAmount: 0, description: '' });
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
 
+  const fetchProperties = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/properties`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      });
+      if (response.ok) {
+        const result = await response.json();
+        setProperties(result);
+      }
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+    }
+  };
+
+  const fetchPendingPayments = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/payments/pending`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      });
+      if (response.ok) {
+        const result = await response.json();
+        setPendingPayments(result);
+      }
+    } catch (error) {
+      console.error('Error fetching pending payments:', error);
+    }
+  };
+
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
@@ -95,57 +123,34 @@ export default function Dashboard() {
     };
 
     const fetchAssignments = async () => {
-      try {
-        // Fetch completed assignments for payout (assuming endpoint exists or use existing)
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/assignments/maintenance/1/assignments`, { // Placeholder, need user properties
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        if (response.ok) {
-          const result = await response.json();
-          setAssignments(result.filter((a: Assignment) => a.status === 'COMPLETED'));
-        }
-      } catch (error) {
-        console.error('Error fetching assignments:', error);
-      }
-    };
-
-    fetchAnalytics();
-
-    const fetchProperties = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/properties`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        if (response.ok) {
-          const result = await response.json();
-          setProperties(result);
-        }
-      } catch (error) {
-        console.error('Error fetching properties:', error);
-      }
+      // Fetch completed assignments across all landlord's properties
+      // Skip if no properties loaded yet — assignments need a valid maintenance ID
+      // TODO: Add a dedicated /assignments/landlord endpoint for all landlord assignments
     };
 
     const fetchTenants = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/tenants`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        if (response.ok) {
-          const result = await response.json();
-          setTenants(result);
-        }
-      } catch (error) {
-        console.error('Error fetching tenants:', error);
-      }
+      // TODO: Add a dedicated /tenants endpoint on the backend
+      // For now, tenants are derived from properties response
     };
 
-    fetchProperties();
-    fetchTenants();
-    fetchAssignments();
-    fetchPendingPayments();
+    const loadAll = async () => {
+      await Promise.allSettled([
+        fetchAnalytics(),
+        fetchProperties(),
+        fetchTenants(),
+        fetchAssignments(),
+        fetchPendingPayments(),
+      ]);
+      setLoading(false);
+    };
+    loadAll();
 
     // Socket for real-time updates
-    const socket = io(import.meta.env.VITE_API_URL);
+    const socket = io(import.meta.env.VITE_API_URL, {
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+    });
     socket.on('analytics-update', (updatedData: AnalyticsData) => {
       setData(updatedData);
     });
@@ -160,7 +165,7 @@ export default function Dashboard() {
   if (!data) return <div className="flex justify-center items-center h-screen">Error loading data</div>;
 
   // Prepare data for charts
-  const pieData = data.topMaintenanceCategories.map((item, index) => ({
+  const pieData = (data.topMaintenanceCategories ?? []).map((item: any, index: number) => ({
     name: item.category,
     value: item.count,
     color: COLORS[index % COLORS.length],
@@ -180,9 +185,9 @@ export default function Dashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         },
-        body: JSON.stringify({ amount, recipientType: 'mobile_money', recipientCode }) // Assume MoMo
+        body: JSON.stringify({ amount, recipientType: 'mobile_money', recipientCode })
       });
       if (response.ok) {
         alert('Payout initiated successfully!');
@@ -233,34 +238,6 @@ export default function Dashboard() {
     }
   };
 
-  const fetchProperties = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/properties`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-      });
-      if (response.ok) {
-        const result = await response.json();
-        setProperties(result);
-      }
-    } catch (error) {
-      console.error('Error fetching properties:', error);
-    }
-  };
-
-  const fetchPendingPayments = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/payments/pending`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      if (response.ok) {
-        const result = await response.json();
-        setPendingPayments(result);
-      }
-    } catch (error) {
-      console.error('Error fetching pending payments:', error);
-    }
-  };
-
   const handlePayment = (payment: PendingPayment) => {
     if (!window.Paystack) {
       alert('Paystack not loaded');
@@ -270,7 +247,7 @@ export default function Dashboard() {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const paystack = window.Paystack();
     paystack.newTransaction({
-      key: 'pk_test_your-public-key', // Replace with actual public key
+      key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_placeholder',
       email: user.email || 'user@example.com',
       amount: payment.amount * 100, // Convert to kobo
       currency: 'GHS',
@@ -281,7 +258,7 @@ export default function Dashboard() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
           },
           body: JSON.stringify({ reference: transaction.reference, paymentId: payment.id })
         });

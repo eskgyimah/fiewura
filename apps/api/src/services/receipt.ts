@@ -23,7 +23,11 @@ export const generateReceipt = async (paymentId: string) => {
 
   const doc = new PDFDocument();
   const fileName = `receipt_${paymentId}.pdf`;
-  const filePath = path.join(__dirname, '../../receipts', fileName);
+  const receiptsDir = path.join(__dirname, '../../receipts');
+  if (!fs.existsSync(receiptsDir)) {
+    fs.mkdirSync(receiptsDir, { recursive: true });
+  }
+  const filePath = path.join(receiptsDir, fileName);
   const stream = fs.createWriteStream(filePath);
 
   doc.pipe(stream);

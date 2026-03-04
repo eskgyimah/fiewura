@@ -52,6 +52,11 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
   try {
     // Verify webhook signature
     const secret = process.env.PAYSTACK_WEBHOOK_SECRET;
+    if (!secret) {
+      console.error('PAYSTACK_WEBHOOK_SECRET not configured');
+      res.status(500).send('Webhook not configured');
+      return;
+    }
     const signature = req.headers['x-paystack-signature'] as string;
     const hash = crypto.createHmac('sha512', secret).update(JSON.stringify(req.body)).digest('hex');
 

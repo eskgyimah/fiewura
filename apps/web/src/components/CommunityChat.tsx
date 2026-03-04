@@ -29,11 +29,15 @@ export default function CommunityChat({ propertyId }: CommunityChatProps) {
     fetchMessages();
 
     // Connect socket
-    socketRef.current = io(import.meta.env.VITE_API_URL);
+    socketRef.current = io(import.meta.env.VITE_API_URL, {
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+    });
     const socket = socketRef.current;
 
     // Join property room
-    socket.emit('join-property-room', { propertyId });
+    socket.emit('join-community-room', { propertyId });
 
     // Listen for new messages
     socket.on('new-message', (message: Message) => {
@@ -46,7 +50,7 @@ export default function CommunityChat({ propertyId }: CommunityChatProps) {
     });
 
     return () => {
-      socket.emit('leave-property-room', { propertyId });
+      socket.emit('leave-community-room', { propertyId });
       socket.disconnect();
     };
   }, [propertyId]);
@@ -54,7 +58,7 @@ export default function CommunityChat({ propertyId }: CommunityChatProps) {
   const fetchMessages = async () => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/community/${propertyId}/messages`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
       });
       if (response.ok) {
         const data = await response.json();
@@ -75,7 +79,7 @@ export default function CommunityChat({ propertyId }: CommunityChatProps) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`
         },
         body: JSON.stringify({
           content: newMessage,
@@ -95,7 +99,7 @@ export default function CommunityChat({ propertyId }: CommunityChatProps) {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/community/messages/${messageId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
       });
       if (response.ok) {
         setMessages(prev => prev.filter(m => m.id !== messageId));
@@ -162,7 +166,7 @@ export default function CommunityChat({ propertyId }: CommunityChatProps) {
               )}
             </div>
             {/* Delete button for landlord */}
-            {['LANDLORD', 'FIEWURA'].includes(localStorage.getItem('role') || '') && (
+            {['LANDLORD', 'ADMIN'].includes(JSON.parse(localStorage.getItem('user') || '{}').role || '') && (
               <button
                 onClick={() => deleteMessage(message.id)}
                 className="ml-2 text-red-500 hover:text-red-700"

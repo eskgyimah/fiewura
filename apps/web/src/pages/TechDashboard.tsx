@@ -22,7 +22,11 @@ export default function TechDashboard() {
     fetchJobs();
 
     // Socket for real-time updates
-    const socket = io(import.meta.env.VITE_API_URL);
+    const socket = io(import.meta.env.VITE_API_URL, {
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+    });
     socket.on('assignment-updated', (updatedJob: Job) => {
       setJobs(prev =>
         prev.map(j => j.id === updatedJob.id ? updatedJob : j)
@@ -65,7 +69,7 @@ export default function TechDashboard() {
       });
       if (response.ok) {
         const updated = await response.json();
-        setAssignments(prev =>
+        setJobs(prev =>
           prev.map(a => a.id === assignmentId ? updated : a)
         );
       }

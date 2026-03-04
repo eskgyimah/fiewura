@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 export const getVendors = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = (req as any).user;
-    if (!user || !['LANDLORD', 'FIEWURA'].includes(user.role)) {
+    if (!user || !['LANDLORD', 'ADMIN'].includes(user.role)) {
       res.status(403).json({ error: 'Access denied' });
       return;
     }
@@ -26,7 +26,7 @@ export const getVendors = async (req: Request, res: Response): Promise<void> => 
 export const createVendor = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = (req as any).user;
-    if (!user || !['LANDLORD', 'FIEWURA'].includes(user.role)) {
+    if (!user || !['LANDLORD', 'ADMIN'].includes(user.role)) {
       res.status(403).json({ error: 'Access denied' });
       return;
     }
@@ -59,7 +59,7 @@ export const createVendor = async (req: Request, res: Response): Promise<void> =
 export const updateVendor = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = (req as any).user;
-    if (!user || !['LANDLORD', 'FIEWURA'].includes(user.role)) {
+    if (!user || !['LANDLORD', 'ADMIN'].includes(user.role)) {
       res.status(403).json({ error: 'Access denied' });
       return;
     }
@@ -93,7 +93,7 @@ export const updateVendor = async (req: Request, res: Response): Promise<void> =
 export const deleteVendor = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = (req as any).user;
-    if (!user || !['LANDLORD', 'FIEWURA'].includes(user.role)) {
+    if (!user || !['LANDLORD', 'ADMIN'].includes(user.role)) {
       res.status(403).json({ error: 'Access denied' });
       return;
     }
