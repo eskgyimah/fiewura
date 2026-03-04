@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, RadialBarChart, RadialBar, ResponsiveContainer } from 'recharts';
+import BottomNav from '../components/BottomNav';
 
 declare global {
   interface Window {
@@ -272,7 +273,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 pb-24">
       <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6">Analytics Dashboard</h1>
 
       {/* Metrics Cards */}
@@ -457,6 +458,7 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      <BottomNav />
     </div>
   );
 }

@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,6 +6,8 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ──────────────────────────── USERS & AUTH ────────────────────────────
 
 model User {
   id             String   @id @default(cuid())
@@ -21,12 +20,14 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  // Relations
-  properties Property[] // if landlord
-  tenant     Tenant?
-  messages   Message[]
-  communityPosts CommunityPost[]
+  properties          Property[]
+  tenant              Tenant?
+  messages            Message[]
+  communityPosts      CommunityPost[]
   maintenanceRequests Maintenance[]
+  challengeResponses  ChallengeResponse[]
+  meterReadings       MeterReading[]
+  subscription        Subscription?
 }
 
 enum Role {
@@ -36,6 +37,36 @@ enum Role {
   TECH_TEAM
 }
 
+// ──────────────────────────── SUBSCRIPTION ────────────────────────────
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  landlordId           String             @unique
+  landlord             User               @relation(fields: [landlordId], references: [id])
+  tier                 SubscriptionTier   @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  startDate            DateTime           @default(now())
+  renewalDate          DateTime?
+  paystackSubCode      String?
+  paystackCustomerCode String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+}
+
+enum SubscriptionTier {
+  FREE
+  BASIC
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+// ──────────────────────────── PROPERTY ────────────────────────────
+
 model Property {
   id          String   @id @default(cuid())
   landlordId  String
@@ -44,15 +75,20 @@ model Property {
   country     String   @default("Ghana")
   rentAmount  Float
   description String?
+  latitude    Float?
+  longitude   Float?
+  images      String[]
+  qrToken     String?
+  qrExpiresAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
-  landlord    User     @relation(fields: [landlordId], references: [id])
-  tenants     Tenant[]
-  leases      Lease[]
-  maintenances Maintenance[]
+  landlord       User             @relation(fields: [landlordId], references: [id])
+  tenants        Tenant[]
+  leases         Lease[]
+  maintenances   Maintenance[]
   communityPosts CommunityPost[]
+  meters         Meter[]
 }
 
 model Tenant {
@@ -61,26 +97,28 @@ model Tenant {
   propertyId String
   createdAt  DateTime @default(now())
 
-  // Relations
-  user       User     @relation(fields: [userId], references: [id])
-  property   Property @relation(fields: [propertyId], references: [id])
-  lease      Lease?
+  user     User     @relation(fields: [userId], references: [id])
+  property Property @relation(fields: [propertyId], references: [id])
+  lease    Lease?
 }
 
+// ──────────────────────────── LEASE & AGREEMENT ────────────────────────────
+
 model Lease {
-  id         String   @id @default(cuid())
+  id         String      @id @default(cuid())
   propertyId String
-  tenantId   String   @unique
+  tenantId   String      @unique
   startDate  DateTime
   endDate    DateTime
   rentAmount Float
   status     LeaseStatus @default(ACTIVE)
-  createdAt  DateTime     @default(now())
+  createdAt  DateTime    @default(now())
 
-  // Relations
-  property Property @relation(fields: [propertyId], references: [id])
-  tenant   Tenant  @relation(fields: [tenantId], references: [id])
-  payments Payment[]
+  property  Property          @relation(fields: [propertyId], references: [id])
+  tenant    Tenant            @relation(fields: [tenantId], references: [id])
+  payments  Payment[]
+  agreement TenancyAgreement?
+  evictions EvictionNotice[]
 }
 
 enum LeaseStatus {
@@ -89,21 +127,50 @@ enum LeaseStatus {
   TERMINATED
 }
 
-model Maintenance {
-  id          String   @id @default(cuid())
-  propertyId  String
-  tenantId    String?
-  description String
-  status      MaintenanceStatus @default(PENDING)
-  category    MaintenanceCategory @default(OTHER)
-  photos      String[] // array of file paths
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model TenancyAgreement {
+  id               String          @id @default(cuid())
+  leaseId          String          @unique
+  lease            Lease           @relation(fields: [leaseId], references: [id])
+  templateType     String          @default("standard")
+  terms            Json?
+  landlordSigned   Boolean         @default(false)
+  tenantSigned     Boolean         @default(false)
+  landlordSignedAt DateTime?
+  tenantSignedAt   DateTime?
+  documentUrl      String?
+  status           AgreementStatus @default(DRAFT)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
 
-  // Relations
-  property     Property                @relation(fields: [propertyId], references: [id])
-  tenant       User?                   @relation(fields: [tenantId], references: [id])
-  assignments  MaintenanceAssignment[]
+enum AgreementStatus {
+  DRAFT
+  PENDING_SIGNATURES
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+// ──────────────────────────── MAINTENANCE & CHALLENGES ────────────────────────────
+
+model Maintenance {
+  id              String              @id @default(cuid())
+  propertyId      String
+  tenantId        String?
+  description     String
+  status          MaintenanceStatus   @default(PENDING)
+  category        MaintenanceCategory @default(OTHER)
+  photos          String[]
+  appointmentDate DateTime?
+  tenantVerified  Boolean             @default(false)
+  reopenCount     Int                 @default(0)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  property    Property              @relation(fields: [propertyId], references: [id])
+  tenant      User?                 @relation(fields: [tenantId], references: [id])
+  assignments MaintenanceAssignment[]
+  responses   ChallengeResponse[]
 }
 
 enum MaintenanceStatus {
@@ -121,19 +188,137 @@ enum MaintenanceCategory {
   OTHER
 }
 
-model Message {
-  id        String   @id @default(cuid())
-  roomId    String   // could be property id or general
-  userId    String
-  content   String
-  timestamp DateTime @default(now())
+model ChallengeResponse {
+  id            String       @id @default(cuid())
+  maintenanceId String
+  responderId   String
+  type          ResponseType
+  message       String?
+  photos        String[]
+  createdAt     DateTime     @default(now())
 
-  // Relations
-  user User @relation(fields: [userId], references: [id])
+  maintenance Maintenance @relation(fields: [maintenanceId], references: [id])
+  responder   User        @relation(fields: [responderId], references: [id])
 }
 
+enum ResponseType {
+  APPOINTMENT_PROPOSED
+  APPOINTMENT_CONFIRMED
+  APPOINTMENT_REJECTED
+  WORK_STARTED
+  WORK_COMPLETED
+  TENANT_CONFIRMED_FIXED
+  TENANT_MARKED_UNFIXED
+  REOPENED
+}
+
+// ──────────────────────────── ASSIGNMENTS ────────────────────────────
+
+model MaintenanceAssignment {
+  id                   String            @id @default(cuid())
+  maintenanceRequestId String
+  vendorId             String
+  assignedAt           DateTime          @default(now())
+  proposedSchedule     DateTime?
+  confirmedSchedule    DateTime?
+  counterProposal      DateTime?
+  status               AssignmentStatus  @default(ASSIGNED)
+  appointmentStatus    AppointmentStatus @default(NONE)
+  notes                String?
+  costEstimate         Float?
+  estimatedCost        Float?
+  actualCost           Float?
+  receiptPhoto         String?
+  beforePhotos         String[]
+  afterPhotos          String[]
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  maintenanceRequest Maintenance  @relation(fields: [maintenanceRequestId], references: [id])
+  vendor             Vendor       @relation(fields: [vendorId], references: [id])
+  vendorPayout       VendorPayout?
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  PENDING
+  SCHEDULED
+  COMPLETED
+}
+
+enum AppointmentStatus {
+  NONE
+  PROPOSED
+  CONFIRMED
+  RESCHEDULED
+  CANCELLED
+}
+
+// ──────────────────────────── METER TRACKING ────────────────────────────
+
+model Meter {
+  id         String    @id @default(cuid())
+  propertyId String
+  type       MeterType
+  meterId    String
+  createdAt  DateTime  @default(now())
+
+  property Property       @relation(fields: [propertyId], references: [id])
+  readings MeterReading[]
+}
+
+model MeterReading {
+  id         String   @id @default(cuid())
+  meterId    String
+  value      Float
+  photoUrl   String?
+  recordedBy String
+  recordedAt DateTime @default(now())
+
+  meter    Meter @relation(fields: [meterId], references: [id])
+  recorder User  @relation(fields: [recordedBy], references: [id])
+}
+
+enum MeterType {
+  WATER
+  ELECTRICITY
+  GAS
+}
+
+// ──────────────────────────── EVICTION ────────────────────────────
+
+model EvictionNotice {
+  id            String          @id @default(cuid())
+  leaseId       String
+  reason        EvictionReason
+  details       String?
+  noticePeriod  Int
+  issuedAt      DateTime        @default(now())
+  effectiveDate DateTime
+  status        EvictionStatus  @default(ISSUED)
+
+  lease Lease @relation(fields: [leaseId], references: [id])
+}
+
+enum EvictionReason {
+  NON_PAYMENT
+  LEASE_VIOLATION
+  PROPERTY_NEEDED
+  LEASE_EXPIRED
+}
+
+enum EvictionStatus {
+  ISSUED
+  ACKNOWLEDGED
+  CONTESTED
+  ENFORCED
+  CANCELLED
+}
+
+// ──────────────────────────── PAYMENTS ────────────────────────────
+
 model Payment {
-  id             String   @id @default(cuid())
+  id             String        @id @default(cuid())
   leaseId        String
   amount         Float
   status         PaymentStatus @default(PENDING)
@@ -142,7 +327,6 @@ model Payment {
   receiptUrl     String?
   createdAt      DateTime      @default(now())
 
-  // Relations
   lease Lease @relation(fields: [leaseId], references: [id])
 }
 
@@ -152,39 +336,7 @@ enum PaymentStatus {
   FAILED
 }
 
-model SmsLog {
-  id      String   @id @default(cuid())
-  to      String
-  message String
-  status  String   @default("SENT")
-  sentAt  DateTime @default(now())
-}
-
-model CommunityPost {
-  id         String      @id @default(cuid())
-  propertyId String
-  userId     String
-  content    String
-  type       MessageType @default(DISCUSSION)
-  parentId   String?     // for replies/threading
-  pinned     Boolean     @default(false)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  readBy     String[]    // array of userIds
-
-  // Relations
-  property   Property      @relation(fields: [propertyId], references: [id])
-  user       User          @relation(fields: [userId], references: [id])
-  replies    CommunityPost[] @relation("PostReplies") // self-referencing for threading
-  parent     CommunityPost?  @relation("PostReplies", fields: [parentId], references: [id])
-}
-
-enum MessageType {
-  ANNOUNCEMENT
-  DISCUSSION
-  LOST_FOUND
-  EVENT
-}
+// ──────────────────────────── VENDOR ────────────────────────────
 
 model Vendor {
   id          String   @id @default(cuid())
@@ -197,39 +349,21 @@ model Vendor {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  assignments MaintenanceAssignment[]
+  assignments   MaintenanceAssignment[]
   vendorPayouts VendorPayout[]
 }
 
-model MaintenanceAssignment {
-  id                   String   @id @default(cuid())
-  maintenanceRequestId String
-  vendorId             String
-  assignedAt           DateTime @default(now())
-  proposedSchedule     DateTime?
-  confirmedSchedule    DateTime?
-  counterProposal      DateTime?
-  status               AssignmentStatus @default(ASSIGNED)
-  notes                String?
-  costEstimate         Float?
-  estimatedCost        Float?
-  actualCost           Float?
-  receiptPhoto         String?
-  beforePhotos         String[]
-  afterPhotos          String[]
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+model VendorPayout {
+  id           String             @id @default(cuid())
+  assignmentId String             @unique
+  amount       Float
+  vendorId     String
+  status       VendorPayoutStatus @default(PENDING)
+  reference    String?
+  createdAt    DateTime           @default(now())
 
-  maintenanceRequest   Maintenance @relation(fields: [maintenanceRequestId], references: [id])
-  vendor               Vendor      @relation(fields: [vendorId], references: [id])
-  vendorPayout         VendorPayout?
-}
-
-enum AssignmentStatus {
-  ASSIGNED
-  PENDING
-  SCHEDULED
-  COMPLETED
+  assignment MaintenanceAssignment @relation(fields: [assignmentId], references: [id])
+  vendor     Vendor                @relation(fields: [vendorId], references: [id])
 }
 
 enum VendorPayoutStatus {
@@ -239,16 +373,47 @@ enum VendorPayoutStatus {
   FAILED
 }
 
-model VendorPayout {
-  id            String             @id @default(cuid())
-  assignmentId  String             @unique
-  amount        Float
-  vendorId      String
-  status        VendorPayoutStatus @default(PENDING)
-  reference     String?
-  createdAt     DateTime           @default(now())
+// ──────────────────────────── MESSAGING ────────────────────────────
 
-  // Relations
-  assignment    MaintenanceAssignment @relation(fields: [assignmentId], references: [id])
-  vendor        Vendor                @relation(fields: [vendorId], references: [id])
+model Message {
+  id        String   @id @default(cuid())
+  roomId    String
+  userId    String
+  content   String
+  timestamp DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model CommunityPost {
+  id         String      @id @default(cuid())
+  propertyId String
+  userId     String
+  content    String
+  type       MessageType @default(DISCUSSION)
+  parentId   String?
+  pinned     Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  readBy     String[]
+
+  property Property        @relation(fields: [propertyId], references: [id])
+  user     User            @relation(fields: [userId], references: [id])
+  replies  CommunityPost[] @relation("PostReplies")
+  parent   CommunityPost?  @relation("PostReplies", fields: [parentId], references: [id])
+}
+
+enum MessageType {
+  ANNOUNCEMENT
+  DISCUSSION
+  LOST_FOUND
+  EVENT
+}
+
+model SmsLog {
+  id      String   @id @default(cuid())
+  to      String
+  message String
+  status  String   @default("SENT")
+  sentAt  DateTime @default(now())
 }

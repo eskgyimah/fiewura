@@ -13,6 +13,13 @@ import vendorsRouter from './routes/vendors';
 import assignmentsRouter from './routes/assignments';
 import communityRouter from './routes/community';
 import paymentsRouter from './routes/payments';
+import subscriptionsRouter from './routes/subscriptions';
+import challengesRouter from './routes/maintenance-v2';
+import metersRouter from './routes/meters';
+import agreementsRouter from './routes/agreements';
+import evictionsRouter from './routes/evictions';
+import qrRouter from './routes/qr';
+import policiesRouter from './routes/policies';
 import { authMiddleware } from './middleware/auth';
 import { rateLimit } from './middleware/rateLimit';
 import { logger } from './middleware/logger';
@@ -81,6 +88,13 @@ app.use('/api/vendors', vendorsRouter);
 app.use('/api/assignments', assignmentsRouter);
 app.use('/api/community', communityRouter);
 app.use('/api/payments', paymentsRouter);
+app.use('/api/subscriptions', subscriptionsRouter);
+app.use('/api/challenges', challengesRouter);
+app.use('/api/meters', metersRouter);
+app.use('/api/agreements', agreementsRouter);
+app.use('/api/evictions', evictionsRouter);
+app.use('/api/qr', qrRouter);
+app.use('/api/policies', policiesRouter);
 
 // Socket
 io.on('connection', (socket) => {
