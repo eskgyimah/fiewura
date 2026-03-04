@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   createChallenge,
+  getAllChallenges,
   getMyChallenges,
   getChallengeTimeline,
   assignChallenge,
@@ -15,6 +16,9 @@ const router = Router();
 
 // Tenant creates a maintenance challenge
 router.post('/', authMiddleware, requireRole(['TENANT']), createChallenge);
+
+// Landlord: all challenges across their properties
+router.get('/', authMiddleware, requireRole(['LANDLORD']), getAllChallenges);
 
 // Tenant's challenges with response timeline
 router.get('/my', authMiddleware, getMyChallenges);

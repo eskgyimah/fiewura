@@ -69,6 +69,33 @@ export const createChallenge = async (req: Request, res: Response): Promise<void
   }
 };
 
+// GET /api/maintenance-v2 - All challenges for landlord's properties
+export const getAllChallenges = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = (req as any).user;
+
+    const challenges = await prisma.maintenance.findMany({
+      where: {
+        property: { landlordId: user.id },
+      },
+      include: {
+        property: { select: { address: true, city: true } },
+        tenant: { select: { name: true, phone: true } },
+        responses: {
+          orderBy: { createdAt: 'asc' },
+          include: { responder: { select: { name: true, role: true } } },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json(challenges);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch challenges' });
+  }
+};
+
 // GET /api/maintenance-v2/my - Tenant's challenges with response timeline
 export const getMyChallenges = async (req: Request, res: Response): Promise<void> => {
   try {
