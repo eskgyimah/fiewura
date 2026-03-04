@@ -14,10 +14,11 @@ export default function MoreMenu() {
 
   const ITEMS: { label: string; path: string; icon: string; roles?: string[] }[] = [
     { label: 'Meter Readings', path: '/meter-readings', icon: '📊' },
-    { label: 'Challenges', path: '/challenges', icon: '🔧' },
     { label: 'Subscription', path: '/subscription', icon: '💎', roles: ['LANDLORD'] },
+    { label: 'Payment History', path: '/payments', icon: '💰' },
     { label: 'Ghana Housing Policies', path: '/policies', icon: '📜' },
-    { label: 'Community', path: '/community', icon: '👥' },
+    { label: 'Help & Support', path: '/support', icon: '🛟' },
+    { label: 'About Fie Wura', path: '/about', icon: 'ℹ️' },
   ];
 
   const filtered = ITEMS.filter(i => !i.roles || i.roles.includes(user.role));

@@ -1,51 +1,8 @@
 import { useEffect, useState } from 'react';
-import { io } from 'socket.io-client';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, RadialBarChart, RadialBar, ResponsiveContainer } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 
-declare global {
-  interface Window {
-    Paystack: any;
-  }
-}
-
-interface Assignment {
-  id: string;
-  status: string;
-  actualCost: number | null;
-  maintenanceRequest: {
-    description: string;
-    property: { address: string };
-  };
-  vendor: { name: string; phone: string };
-}
-
-interface Property {
-  id: string;
-  address: string;
-  rentAmount: number;
-  tenants: { user: { name: string } }[];
-}
-
-interface Tenant {
-  id: string;
-  user: { name: string; email: string; phone: string };
-  lease: { rentAmount: number; status: string };
-  property: { address: string };
-}
-
-interface NewProperty {
-  address: string;
-  rentAmount: number;
-  description: string;
-}
-
-interface PendingPayment {
-  id: string;
-  amount: number;
-  dueDate: string;
-  lease: { property: { address: string } };
-}
+const API = import.meta.env.VITE_API_URL || '';
 
 interface AnalyticsData {
   totalProperties: number;
@@ -54,410 +11,169 @@ interface AnalyticsData {
   rentCollectedThisMonth: number;
   overdueRentCount: number;
   pendingMaintenanceCount: number;
+  expectedRent?: number;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
-
-const Card = ({ title, value }: { title: string; value: string | number }) => (
-  <div className="bg-white p-4 rounded-lg shadow-md">
-    <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-    <p className="text-2xl font-bold text-gray-900">{value}</p>
-  </div>
-);
-
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
   const [data, setData] = useState<AnalyticsData | null>(null);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showPropertyForm, setShowPropertyForm] = useState(false);
-  const [newProperty, setNewProperty] = useState<NewProperty>({ address: '', rentAmount: 0, description: '' });
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
-
-  const fetchProperties = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/properties`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-      });
-      if (response.ok) {
-        const result = await response.json();
-        setProperties(result);
-      }
-    } catch (error) {
-      console.error('Error fetching properties:', error);
-    }
-  };
-
-  const fetchPendingPayments = async () => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/payments/pending`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-      });
-      if (response.ok) {
-        const result = await response.json();
-        setPendingPayments(result);
-      }
-    } catch (error) {
-      console.error('Error fetching pending payments:', error);
-    }
-  };
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const headers = { Authorization: `Bearer ${localStorage.getItem('accessToken')}` };
 
   useEffect(() => {
-    const fetchAnalytics = async () => {
+    const load = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/analytics/overview`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          },
-        });
-        if (response.ok) {
-          const result = await response.json();
-          setData(result);
-        } else {
-          console.error('Failed to fetch analytics');
-        }
-      } catch (error) {
-        console.error('Error fetching analytics:', error);
-      }
+        const res = await fetch(`${API}/analytics/overview`, { headers });
+        if (res.ok) setData(await res.json());
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
     };
-
-    const fetchAssignments = async () => {
-      // Fetch completed assignments across all landlord's properties
-      // Skip if no properties loaded yet — assignments need a valid maintenance ID
-      // TODO: Add a dedicated /assignments/landlord endpoint for all landlord assignments
-    };
-
-    const fetchTenants = async () => {
-      // TODO: Add a dedicated /tenants endpoint on the backend
-      // For now, tenants are derived from properties response
-    };
-
-    const loadAll = async () => {
-      await Promise.allSettled([
-        fetchAnalytics(),
-        fetchProperties(),
-        fetchTenants(),
-        fetchAssignments(),
-        fetchPendingPayments(),
-      ]);
-      setLoading(false);
-    };
-    loadAll();
-
-    // Socket for real-time updates
-    const socket = io(import.meta.env.VITE_API_URL, {
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
-    });
-    socket.on('analytics-update', (updatedData: AnalyticsData) => {
-      setData(updatedData);
-    });
-
-    return () => {
-      socket.off('analytics-update');
-      socket.disconnect();
-    };
+    load();
   }, []);
 
-  if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
-  if (!data) return <div className="flex justify-center items-center h-screen">Error loading data</div>;
+  // Time-based greeting
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-  // Prepare data for charts
-  const pieData = (data.topMaintenanceCategories ?? []).map((item: any, index: number) => ({
-    name: item.category,
-    value: item.count,
-    color: COLORS[index % COLORS.length],
-  }));
+  if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
 
-  const gaugeData = [
-    {
-      name: 'Occupancy',
-      value: data.occupancyRate,
-      fill: data.occupancyRate > 80 ? '#00C49F' : data.occupancyRate > 50 ? '#FFBB28' : '#FF8042',
-    },
+  const d = data || { totalProperties: 0, totalTenants: 0, occupancyRate: 0, rentCollectedThisMonth: 0, overdueRentCount: 0, pendingMaintenanceCount: 0, expectedRent: 0 };
+
+  // Role-based quick actions
+  const LANDLORD_ACTIONS = [
+    { label: '+ Property', icon: '🏠', path: '/properties', color: 'bg-blue-500' },
+    { label: 'Invite Tenant', icon: '👤', path: '/properties', color: 'bg-green-500' },
+    { label: 'Challenges', icon: '🔧', path: '/challenges', color: 'bg-orange-500' },
+    { label: 'Payments', icon: '💰', path: '/payments', color: 'bg-purple-500' },
   ];
 
-  const initiatePayout = async (assignmentId: string, amount: number, recipientCode: string) => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/assignments/${assignmentId}/payout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        },
-        body: JSON.stringify({ amount, recipientType: 'mobile_money', recipientCode })
-      });
-      if (response.ok) {
-        alert('Payout initiated successfully!');
-        // Remove from list or update
-        setAssignments(prev => prev.filter(a => a.id !== assignmentId));
-      } else {
-        alert('Failed to initiate payout');
-      }
-    } catch (error) {
-      console.error('Payout error:', error);
-      alert('Error initiating payout');
-    }
-  };
+  const TENANT_ACTIONS = [
+    { label: 'My Place', icon: '🏠', path: '/my-place', color: 'bg-blue-500' },
+    { label: 'Report Issue', icon: '🔧', path: '/report-challenge', color: 'bg-orange-500' },
+    { label: 'My Challenges', icon: '📋', path: '/challenges', color: 'bg-yellow-500' },
+    { label: 'Know Rights', icon: '⚖️', path: '/policies', color: 'bg-green-500' },
+  ];
 
-  const createProperty = async () => {
-    try {
-      const formData = new FormData();
-      formData.append('address', newProperty.address);
-      formData.append('rentAmount', newProperty.rentAmount.toString());
-      formData.append('description', newProperty.description);
-      formData.append('city', 'Accra');
-      formData.append('country', 'Ghana');
+  const TECH_ACTIONS = [
+    { label: 'My Jobs', icon: '🔧', path: '/tech-dashboard', color: 'bg-orange-500' },
+    { label: 'Schedule', icon: '📅', path: '/tech-dashboard', color: 'bg-blue-500' },
+  ];
 
-      selectedImages.forEach((image, index) => {
-        formData.append('images', image);
-      });
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/properties`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        },
-        body: formData
-      });
-      if (response.ok) {
-        alert('Property created successfully!');
-        setNewProperty({ address: '', rentAmount: 0, description: '' });
-        setSelectedImages([]);
-        setShowPropertyForm(false);
-        // Refresh properties
-        fetchProperties();
-      } else {
-        alert('Failed to create property');
-      }
-    } catch (error) {
-      console.error('Create property error:', error);
-      alert('Error creating property');
-    }
-  };
-
-  const handlePayment = (payment: PendingPayment) => {
-    if (!window.Paystack) {
-      alert('Paystack not loaded');
-      return;
-    }
-
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const paystack = window.Paystack();
-    paystack.newTransaction({
-      key: import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_placeholder',
-      email: user.email || 'user@example.com',
-      amount: payment.amount * 100, // Convert to kobo
-      currency: 'GHS',
-      ref: `rent_${payment.id}_${Date.now()}`,
-      onSuccess: async (transaction: any) => {
-        // Send to backend to verify and update
-        await fetch(`${import.meta.env.VITE_API_URL}/payments/verify`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          },
-          body: JSON.stringify({ reference: transaction.reference, paymentId: payment.id })
-        });
-        alert('Payment successful!');
-        fetchPendingPayments(); // Refresh
-      },
-      onCancel: () => {
-        alert('Payment cancelled');
-      }
-    });
-  };
+  const actions = user.role === 'LANDLORD' ? LANDLORD_ACTIONS
+    : user.role === 'TENANT' ? TENANT_ACTIONS
+    : TECH_ACTIONS;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 pb-24">
-      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6">Analytics Dashboard</h1>
-
-      {/* Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Card title="Total Properties" value={data.totalProperties} />
-        <Card title="Total Tenants" value={data.totalTenants} />
-        <Card title="Occupancy Rate" value={`${data.occupancyRate}%`} />
-        <Card title="Rent Collected This Month" value={`GHS ${data.rentCollectedThisMonth.toFixed(2)}`} />
-        <Card title="Overdue Rent Count" value={data.overdueRentCount} />
-        <Card title="Pending Maintenance Count" value={data.pendingMaintenanceCount} />
+    <div className="min-h-screen bg-gray-50 pb-20">
+      {/* Welcome Header */}
+      <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-5">
+        <p className="text-orange-100 text-sm">{greeting},</p>
+        <h1 className="text-xl font-bold">{user.name || 'User'}</h1>
+        <p className="text-orange-200 text-xs mt-1">{user.role} {d.totalProperties > 0 ? `· ${d.totalProperties} ${d.totalProperties === 1 ? 'property' : 'properties'}` : ''}</p>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* Maintenance Categories Pie Chart */}
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Top Maintenance Categories</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {pieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+      <div className="p-4 space-y-4">
+        {/* Metric Cards — 2x2 Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white rounded-xl p-3 shadow-sm border">
+            <p className="text-xs text-gray-500">Properties</p>
+            <p className="text-2xl font-bold text-gray-900">{d.totalProperties}</p>
+          </div>
+          <div className="bg-white rounded-xl p-3 shadow-sm border">
+            <p className="text-xs text-gray-500">Tenants</p>
+            <p className="text-2xl font-bold text-gray-900">{d.totalTenants}</p>
+          </div>
+          <div className="bg-white rounded-xl p-3 shadow-sm border">
+            <p className="text-xs text-gray-500">Occupancy</p>
+            <p className="text-2xl font-bold text-gray-900">{d.occupancyRate}%</p>
+          </div>
+          <div className="bg-white rounded-xl p-3 shadow-sm border">
+            <p className="text-xs text-gray-500">Expected Rent</p>
+            <p className="text-xl font-bold text-gray-900">GHS {(d.expectedRent || 0).toLocaleString()}</p>
+          </div>
         </div>
 
-        {/* Occupancy Gauge */}
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Occupancy Rate</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <RadialBarChart cx="50%" cy="50%" innerRadius="10%" outerRadius="80%" barSize={10} data={gaugeData}>
-              <RadialBar
-                minAngle={15}
-                label={{ position: 'insideStart', fill: '#fff' }}
-                background
-                clockWise
-                dataKey="value"
-              />
-              <Legend iconSize={10} layout="vertical" verticalAlign="middle" wrapperStyle={{}} />
-            </RadialBarChart>
-          </ResponsiveContainer>
-          <p className="text-center mt-2">{data.occupancyRate}% Occupied</p>
+        {/* Rent Summary */}
+        <div className="bg-white rounded-xl p-3 shadow-sm border flex justify-between items-center">
+          <div>
+            <p className="text-xs text-gray-500">Collected This Month</p>
+            <p className="text-lg font-bold text-green-600">GHS {d.rentCollectedThisMonth.toFixed(0)}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-gray-500">Outstanding</p>
+            <p className="text-lg font-bold text-red-500">GHS {((d.expectedRent || 0) - d.rentCollectedThisMonth).toLocaleString()}</p>
+          </div>
         </div>
-      </div>
 
-      {/* Completed Assignments for Payout */}
-      {assignments.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold mb-4">Completed Maintenance Jobs - Ready for Payout</h2>
-          <div className="space-y-4">
-            {assignments.map(assignment => (
-              <div key={assignment.id} className="bg-white p-4 rounded-lg shadow-md">
-                <h3 className="text-lg font-semibold">{assignment.maintenanceRequest.description}</h3>
-                <p className="text-gray-600">{assignment.maintenanceRequest.property.address}</p>
-                <p className="text-sm text-gray-500">Vendor: {assignment.vendor.name} ({assignment.vendor.phone})</p>
-                {assignment.actualCost && <p className="text-sm text-gray-500">Actual Cost: GHS {assignment.actualCost}</p>}
-                <button
-                  onClick={() => {
-                    const amount = prompt('Enter payout amount (GHS):', assignment.actualCost?.toString() || '');
-                    const recipientCode = prompt('Enter vendor MoMo number:');
-                    if (amount && recipientCode) {
-                      initiatePayout(assignment.id, parseFloat(amount), recipientCode);
-                    }
-                  }}
-                  className="mt-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-                >
-                  Initiate Payout
-                </button>
-              </div>
+        {/* Quick Actions */}
+        <div>
+          <h2 className="text-sm font-semibold text-gray-500 mb-2">QUICK ACTIONS</h2>
+          <div className="grid grid-cols-2 gap-2">
+            {actions.map(a => (
+              <button key={a.label} onClick={() => navigate(a.path)}
+                className={`${a.color} text-white rounded-xl p-3 flex items-center gap-2 text-sm font-medium shadow-sm`}>
+                <span className="text-lg">{a.icon}</span>
+                <span>{a.label}</span>
+              </button>
             ))}
           </div>
         </div>
-      )}
 
-      {/* Properties Section */}
-      <div className="mt-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold">My Properties</h2>
-          <button
-            onClick={() => setShowPropertyForm(!showPropertyForm)}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-          >
-            {showPropertyForm ? 'Cancel' : 'Add Property'}
-          </button>
-        </div>
-        {showPropertyForm && (
-          <div className="bg-gray-100 p-4 rounded mb-4">
-            <input
-              type="text"
-              placeholder="Address"
-              value={newProperty.address}
-              onChange={(e) => setNewProperty({ ...newProperty, address: e.target.value })}
-              className="w-full p-2 mb-2 border rounded"
-            />
-            <input
-              type="number"
-              placeholder="Rent Amount"
-              value={newProperty.rentAmount}
-              onChange={(e) => setNewProperty({ ...newProperty, rentAmount: parseFloat(e.target.value) })}
-              className="w-full p-2 mb-2 border rounded"
-            />
-            <textarea
-              placeholder="Description"
-              value={newProperty.description}
-              onChange={(e) => setNewProperty({ ...newProperty, description: e.target.value })}
-              className="w-full p-2 mb-2 border rounded"
-            />
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={(e) => setSelectedImages(Array.from(e.target.files || []))}
-              className="w-full p-2 mb-2 border rounded"
-            />
-            {selectedImages.length > 0 && (
-              <p className="text-sm text-gray-600 mb-2">{selectedImages.length} image(s) selected</p>
+        {/* Alerts */}
+        {(d.overdueRentCount > 0 || d.pendingMaintenanceCount > 0) && (
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold text-gray-500">ALERTS</h2>
+            {d.overdueRentCount > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+                <span className="text-red-500 font-bold">!</span>
+                <p className="text-sm text-red-800">{d.overdueRentCount} overdue rent payment{d.overdueRentCount > 1 ? 's' : ''}</p>
+              </div>
             )}
-            <button
-              onClick={createProperty}
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-            >
-              Create Property
-            </button>
+            {d.pendingMaintenanceCount > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center gap-2">
+                <span className="text-yellow-600 font-bold">!</span>
+                <p className="text-sm text-yellow-800">{d.pendingMaintenanceCount} pending maintenance challenge{d.pendingMaintenanceCount > 1 ? 's' : ''}</p>
+              </div>
+            )}
           </div>
         )}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {properties.map(property => (
-            <div key={property.id} className="bg-white p-4 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold">{property.address}</h3>
-              <p className="text-gray-600">Rent: GHS {property.rentAmount}</p>
-              <p className="text-sm text-gray-500">Tenants: {property.tenants.length}</p>
-            </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Tenants Section */}
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold mb-4">My Tenants</h2>
-        <div className="space-y-4">
-          {tenants.map(tenant => (
-            <div key={tenant.id} className="bg-white p-4 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold">{tenant.user.name}</h3>
-              <p className="text-gray-600">Property: {tenant.property.address}</p>
-              <p className="text-sm text-gray-500">Email: {tenant.user.email} | Phone: {tenant.user.phone}</p>
-              <p className="text-sm text-gray-500">Rent: GHS {tenant.lease.rentAmount} | Status: {tenant.lease.status}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Pending Payments Section */}
-      {pendingPayments.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold mb-4">Pending Rent Payments</h2>
-          <div className="space-y-4">
-            {pendingPayments.map(payment => (
-              <div key={payment.id} className="bg-white p-4 rounded-lg shadow-md">
-                <h3 className="text-lg font-semibold">GHS {payment.amount}</h3>
-                <p className="text-gray-600">{payment.lease.property.address}</p>
-                <p className="text-sm text-gray-500">Due: {new Date(payment.dueDate).toLocaleDateString()}</p>
-                <button
-                  onClick={() => handlePayment(payment)}
-                  className="mt-2 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-                >
-                  Pay Rent
-                </button>
+        {/* Collapsible Analytics */}
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+          <button onClick={() => setAnalyticsOpen(!analyticsOpen)}
+            className="w-full p-4 flex justify-between items-center text-left">
+            <h2 className="font-semibold text-gray-800">Analytics</h2>
+            <span className="text-gray-400 text-sm">{analyticsOpen ? '▲' : '▼'}</span>
+          </button>
+          {analyticsOpen && (
+            <div className="px-4 pb-4 space-y-3 border-t">
+              <div className="flex justify-between py-2">
+                <span className="text-sm text-gray-600">Overdue Rents</span>
+                <span className="font-semibold text-sm">{d.overdueRentCount}</span>
               </div>
-            ))}
-          </div>
+              <div className="flex justify-between py-2 border-t">
+                <span className="text-sm text-gray-600">Pending Maintenance</span>
+                <span className="font-semibold text-sm">{d.pendingMaintenanceCount}</span>
+              </div>
+              <div className="flex justify-between py-2 border-t">
+                <span className="text-sm text-gray-600">Occupancy Rate</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500 rounded-full" style={{ width: `${d.occupancyRate}%` }} />
+                  </div>
+                  <span className="font-semibold text-sm">{d.occupancyRate}%</span>
+                </div>
+              </div>
+              <div className="flex justify-between py-2 border-t">
+                <span className="text-sm text-gray-600">Rent Collected</span>
+                <span className="font-semibold text-sm">GHS {d.rentCollectedThisMonth.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
       <BottomNav />
     </div>
   );

@@ -15,11 +15,17 @@ interface Property {
   meters: { id: string; type: string; meterId: string }[];
 }
 
+const GHANA_REGIONS = [
+  'Greater Accra', 'Ashanti', 'Western', 'Eastern', 'Central',
+  'Northern', 'Volta', 'Upper East', 'Upper West', 'Brong-Ahafo',
+  'Western North', 'Ahafo', 'Bono East', 'Oti', 'North East', 'Savannah',
+];
+
 export default function PropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ address: '', city: 'Accra', rentAmount: '', description: '' });
+  const [form, setForm] = useState({ address: '', city: 'Greater Accra', rentAmount: '', description: '' });
   const [saving, setSaving] = useState(false);
   const [qrProp, setQrProp] = useState<string | null>(null);
   const [qrToken, setQrToken] = useState('');
@@ -88,13 +94,15 @@ export default function PropertiesPage() {
         {/* Add Property Form */}
         {showAdd && (
           <div className="bg-white rounded-lg shadow-sm border p-4 space-y-3">
-            <input type="text" placeholder="Address" value={form.address}
+            <input type="text" placeholder="Ghana Digital Address (e.g. GA-123-4567)" value={form.address}
               onChange={e => setForm({ ...form, address: e.target.value })}
-              className="w-full p-2.5 border rounded-lg text-sm" />
+              className="w-full p-2.5 border rounded-lg text-sm" required />
             <div className="grid grid-cols-2 gap-3">
-              <input type="text" placeholder="City" value={form.city}
+              <select value={form.city}
                 onChange={e => setForm({ ...form, city: e.target.value })}
-                className="p-2.5 border rounded-lg text-sm" />
+                className="p-2.5 border rounded-lg text-sm bg-white">
+                {GHANA_REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
               <input type="number" placeholder="Rent (GHS)" value={form.rentAmount}
                 onChange={e => setForm({ ...form, rentAmount: e.target.value })}
                 className="p-2.5 border rounded-lg text-sm" />

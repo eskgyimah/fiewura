@@ -14,6 +14,9 @@ import MoreMenu from './pages/MoreMenu';
 import PoliciesPage from './pages/PoliciesPage';
 import SubscriptionPage from './pages/SubscriptionPage';
 import AgreementView from './pages/AgreementView';
+import SupportPage from './pages/SupportPage';
+import AboutPage from './pages/AboutPage';
+import PaymentHistory from './pages/PaymentHistory';
 
 export default function App() {
   return (
@@ -35,6 +38,9 @@ export default function App() {
         <Route path="/policies" element={<PoliciesPage />} />
         <Route path="/subscription" element={<SubscriptionPage />} />
         <Route path="/agreement/:id" element={<AgreementView />} />
+        <Route path="/support" element={<SupportPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/payments" element={<PaymentHistory />} />
       </Routes>
     </Router>
   );

@@ -20,6 +20,11 @@ function RegisterForm() {
     setLoading(true);
     setError('');
 
+    if (!formData.name.trim()) { setError('Full name is required'); setLoading(false); return; }
+    if (!formData.email.trim()) { setError('Email is required'); setLoading(false); return; }
+    if (!formData.phone.trim()) { setError('Phone number is required'); setLoading(false); return; }
+    if (formData.password.length < 6) { setError('Password must be at least 6 characters'); setLoading(false); return; }
+
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
         method: 'POST',
@@ -78,10 +83,11 @@ function RegisterForm() {
       <input
         type="tel"
         name="phone"
-        placeholder="Phone Number"
+        placeholder="Phone Number (e.g. 0241234567)"
         value={formData.phone}
         onChange={handleChange}
         className="w-full p-3 mb-4 border rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-orange-500"
+        required
         disabled={loading}
       />
       <select

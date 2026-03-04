@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 
 const API = import.meta.env.VITE_API_URL;
@@ -21,7 +22,41 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: 'bg-gray-100 text-gray-800',
 };
 
+const SAMPLE_CHALLENGES: Challenge[] = [
+  {
+    id: 'sample-1', description: 'Kitchen sink is leaking and causing water damage to the cabinet below',
+    category: 'PLUMBING', status: 'PENDING', tenantVerified: false,
+    createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+    property: { address: 'GA-123-4567, East Legon' },
+    responses: [{ type: 'WORK_STARTED', message: 'Challenge created: Kitchen sink leaking', createdAt: new Date(Date.now() - 2 * 86400000).toISOString() }],
+  },
+  {
+    id: 'sample-2', description: 'Power outlet in bedroom not working — sparks when plugging in',
+    category: 'ELECTRICAL', status: 'IN_PROGRESS', tenantVerified: false,
+    createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+    property: { address: 'AK-456-7890, Kumasi Ahodwo' },
+    responses: [
+      { type: 'WORK_STARTED', message: 'Challenge created: Power outlet sparking', createdAt: new Date(Date.now() - 5 * 86400000).toISOString() },
+      { type: 'WORK_STARTED', message: 'Assigned to vendor: Kofi Electricals', createdAt: new Date(Date.now() - 4 * 86400000).toISOString() },
+      { type: 'APPOINTMENT_PROPOSED', message: 'Appointment proposed for inspection', createdAt: new Date(Date.now() - 3 * 86400000).toISOString() },
+    ],
+  },
+  {
+    id: 'sample-3', description: 'Ceiling fan in living room making loud grinding noise',
+    category: 'APPLIANCE', status: 'COMPLETED', tenantVerified: true,
+    createdAt: new Date(Date.now() - 10 * 86400000).toISOString(),
+    property: { address: 'GT-789-0123, Tema Community 25' },
+    responses: [
+      { type: 'WORK_STARTED', message: 'Challenge created: Ceiling fan grinding', createdAt: new Date(Date.now() - 10 * 86400000).toISOString() },
+      { type: 'WORK_STARTED', message: 'Assigned to vendor: Fix-It Ghana', createdAt: new Date(Date.now() - 9 * 86400000).toISOString() },
+      { type: 'WORK_COMPLETED', message: 'Fan motor replaced, tested OK', createdAt: new Date(Date.now() - 7 * 86400000).toISOString() },
+      { type: 'TENANT_CONFIRMED_FIXED', message: 'Issue confirmed fixed', createdAt: new Date(Date.now() - 6 * 86400000).toISOString() },
+    ],
+  },
+];
+
 export default function ChallengeList() {
+  const navigate = useNavigate();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -34,14 +69,23 @@ export default function ChallengeList() {
         const res = await fetch(`${API}${endpoint}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
         });
-        if (res.ok) setChallenges(await res.json());
-      } catch (e) { console.error(e); }
+        if (res.ok) {
+          const data = await res.json();
+          setChallenges(data.length > 0 ? data : SAMPLE_CHALLENGES);
+        } else {
+          setChallenges(SAMPLE_CHALLENGES);
+        }
+      } catch (e) {
+        console.error(e);
+        setChallenges(SAMPLE_CHALLENGES);
+      }
       finally { setLoading(false); }
     };
     fetchChallenges();
   }, []);
 
   const handleVerify = async (id: string, verified: boolean) => {
+    if (id.startsWith('sample-')) return;
     try {
       const res = await fetch(`${API}/challenges/${id}/verify`, {
         method: 'PUT',
@@ -58,13 +102,25 @@ export default function ChallengeList() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      <div className="bg-orange-600 text-white p-4">
-        <h1 className="text-xl font-bold">Maintenance Challenges</h1>
-        <p className="text-orange-100 text-sm">{challenges.length} total</p>
+      <div className="bg-orange-600 text-white p-4 flex items-center gap-3">
+        <button onClick={() => navigate(-1)} className="text-white">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div>
+          <h1 className="text-xl font-bold">Maintenance Challenges</h1>
+          <p className="text-orange-100 text-sm">{challenges.length} total</p>
+        </div>
       </div>
 
       <div className="p-4 space-y-3">
         {challenges.length === 0 && <p className="text-center text-gray-500 py-8">No challenges yet</p>}
+        {challenges[0]?.id.startsWith('sample-') && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700 mb-2">
+            Showing sample challenges for demo. Real challenges will appear here when tenants report issues.
+          </div>
+        )}
         {challenges.map(c => (
           <div key={c.id} className="bg-white rounded-lg shadow-sm border p-4">
             <div className="flex justify-between items-start">
@@ -94,7 +150,7 @@ export default function ChallengeList() {
                     </div>
                   </div>
                 ))}
-                {c.status === 'COMPLETED' && !c.tenantVerified && user.role === 'TENANT' && (
+                {c.status === 'COMPLETED' && !c.tenantVerified && user.role === 'TENANT' && !c.id.startsWith('sample-') && (
                   <div className="flex gap-2 mt-3">
                     <button onClick={() => handleVerify(c.id, true)} className="flex-1 bg-green-500 text-white py-2 rounded text-sm font-medium">Fixed</button>
                     <button onClick={() => handleVerify(c.id, false)} className="flex-1 bg-red-500 text-white py-2 rounded text-sm font-medium">Not Fixed</button>
