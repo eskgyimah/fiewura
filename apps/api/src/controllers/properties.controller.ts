@@ -18,23 +18,29 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// GET /api/properties - Get all properties for landlord
+// GET /api/properties - Get properties scoped by role
 export const getProperties = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = (req as any).user;
+    const role = user.role;
 
-    const properties = await prisma.property.findMany({
-      where: { landlordId: user.id },
-      include: {
-        tenants: {
-          include: {
-            user: { select: { name: true } }
-          }
-        }
-      }
-    });
+    if (role === 'LANDLORD') {
+      const properties = await prisma.property.findMany({
+        where: { landlordId: user.id },
+        include: { tenants: { include: { user: { select: { name: true } } } } }
+      });
+      res.json(properties);
+      return;
+    }
 
-    res.json(properties);
+    if (role === 'TENANT') {
+      const tenant = await prisma.tenant.findFirst({ where: { userId: user.id }, include: { property: { include: { tenants: { include: { user: { select: { name: true } } } } } } } });
+      res.json(tenant?.property ? [tenant.property] : []);
+      return;
+    }
+
+    // VENDOR / TECH_TEAM — no properties to show
+    res.json([]);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch properties' });

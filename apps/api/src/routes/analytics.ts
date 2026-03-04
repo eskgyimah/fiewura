@@ -5,7 +5,7 @@ import { authMiddleware, requireRole } from '../middleware/auth';
 const router = Router();
 
 // GET /api/analytics/overview
-router.get('/overview', authMiddleware, requireRole(['LANDLORD']), getAnalyticsOverview);
+router.get('/overview', authMiddleware, requireRole(['LANDLORD', 'TENANT', 'VENDOR', 'TECH_TEAM']), getAnalyticsOverview);
 
 // GET /api/analytics/revenue
 router.get('/revenue', authMiddleware, requireRole(['LANDLORD']), getRevenueAnalytics);

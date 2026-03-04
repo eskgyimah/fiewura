@@ -24,7 +24,39 @@ export const getAnalyticsOverview = async (req: Request, res: Response): Promise
   try {
     const user = (req as any).user;
     const userId = user.id;
+    const role = user.role;
 
+    // For non-LANDLORD roles, return scoped analytics
+    if (role === 'TENANT') {
+      const tenant = await prisma.tenant.findFirst({ where: { userId }, include: { property: true, lease: true } });
+      const data: AnalyticsData = {
+        totalProperties: tenant ? 1 : 0,
+        totalTenants: 0,
+        occupancyRate: 0,
+        rentCollectedThisMonth: 0,
+        overdueRentCount: tenant?.lease ? await prisma.payment.count({ where: { leaseId: tenant.lease.id, status: 'PENDING', dueDate: { lt: new Date() } } }) : 0,
+        pendingMaintenanceCount: tenant ? await prisma.maintenance.count({ where: { tenantId: tenant.id, status: 'PENDING' } }) : 0,
+      };
+      res.json(data);
+      return;
+    }
+
+    if (role === 'VENDOR' || role === 'TECH_TEAM') {
+      const assignmentCount = await prisma.maintenanceAssignment.count({ where: { vendorId: userId } });
+      const pendingJobs = await prisma.maintenanceAssignment.count({ where: { vendorId: userId, status: { in: ['ASSIGNED', 'PENDING', 'SCHEDULED'] } } });
+      const data: AnalyticsData = {
+        totalProperties: 0,
+        totalTenants: 0,
+        occupancyRate: 0,
+        rentCollectedThisMonth: 0,
+        overdueRentCount: 0,
+        pendingMaintenanceCount: pendingJobs,
+      };
+      res.json(data);
+      return;
+    }
+
+    // LANDLORD flow below
     // Total properties
     const totalProperties = await prisma.property.count({ where: { landlordId: userId } });
 

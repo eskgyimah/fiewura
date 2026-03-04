@@ -33,8 +33,13 @@ function RegisterForm() {
         const data = await response.json();
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('user', JSON.stringify(data.user));
-        alert('Registration successful! Please log in.');
-        // Switch to login form
+
+        // Redirect based on role (same as login flow)
+        if (data.user.role === 'TECH_TEAM') {
+          window.location.href = '/tech-dashboard';
+        } else {
+          window.location.href = '/dashboard';
+        }
       } else {
         const errorData = await response.json();
         setError(errorData.error || 'Registration failed');
